@@ -32,10 +32,12 @@ namespace MoogleEngine
         {
             this.Path = Tittle;
             this.Tittle = Tittle;
-            this.twordsS = twordsS;
-            this.Palabras = Palabras;
-            this.cntw = cntw;
-            this.CalTf_Idf = CalTf_Idf;
+
+            // Inicializar los diccionarios para que no sean null[cite: 4]
+            this.Palabras = new Dictionary<string, int>();
+            this.tf = new Dictionary<string, double>();
+            this.CalTf_Idf = new Dictionary<string, double>();
+
             Token(words);
             CalculoTf(words);
             cnt++;

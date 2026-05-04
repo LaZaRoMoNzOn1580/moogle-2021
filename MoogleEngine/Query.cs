@@ -27,18 +27,22 @@ namespace MoogleEngine
 
         public QueryD(string query)
         {
-            this.QueryWordsQ = QueryWordsQ;
-            this.NuevasQuerys = NuevasQuerys;
-            this.CadenasConOperadores = query.Split(' ');
-            this.SinonimosList = SinonimosList;
-            this.CalculoTf_IdfQueryD = CalculoTf_IdfQueryD;
-            this.vectorQ = vectorQ;
-            this.ResultFOperators = ResultFOperators;
+            // 1. Validamos que la query no sea nula para evitar errores iniciales
+            if (string.IsNullOrEmpty(query)) query = "";
 
-            if (ComprobarOperadores(CadenasConOperadores) == false)
+            // 2. Dividimos la query eliminando espacios vacíos innecesarios
+            this.CadenasConOperadores = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            // 3. Inicializamos los diccionarios para que nunca sean null
+            this.CalculoTf_IdfQueryD = new Dictionary<string, double>();
+            this.Scores = new Dictionary<string, double>();
+            this.Operators = new Dictionary<string, double>();
+            this.ResultFOperators = new Dictionary<string, double>();
+        
+            if (ComprobarOperadores(this.CadenasConOperadores) == false)
             {
-                QueryWordsQ = QueryWords(query);
-                RevisarOrtogra(QueryWordsQ);
+                this.QueryWordsQ = QueryWords(query);
+                RevisarOrtogra(this.QueryWordsQ);
                 NuevasQuerys = LlenarNuevasQuerys(QueryWordsQ, Raiz.Vocabulario, Raiz.salida);
                 SinonimosList = LlenarConSinonimos(NuevasQuerys, Sinonimo.ListSinom);
                 CalculoTf_IdfQuery(SinonimosList);
@@ -48,13 +52,13 @@ namespace MoogleEngine
             }
             else
             {
-                QueryWordsQ = QueryWords(query);
-                RevisarOrtogra(QueryWordsQ);
-                CalculoTf_IdfQuery(QueryWordsQ);
+                this.QueryWordsQ = QueryWords(query);
+                RevisarOrtogra(this.QueryWordsQ);
+                CalculoTf_IdfQuery(this.QueryWordsQ);
                 CalScore();
-                Colleccion(CadenasConOperadores);
+                Colleccion(this.CadenasConOperadores);
                 GuardarDiccionariosFinalesOperators();
-                OrdenarCreacionSnipet(QueryWordsQ);
+                OrdenarCreacionSnipet(this.QueryWordsQ);
             }
 
         }
@@ -110,6 +114,7 @@ namespace MoogleEngine
         //Raices
         public string[] LlenarNuevasQuerys(string[] QueryWordsQ, string[] ListVoc, string[] ListSalidas)
         {
+            if (ListVoc == null || ListSalidas == null) return QueryWordsQ;
             string[] palabras = new string[0];
             int a = 0;
 
@@ -136,33 +141,32 @@ namespace MoogleEngine
 
         //Sinonimos
         public string[] LlenarConSinonimos(string[] QueryWordsQ, List<string[]> ListSinom)
-        {
-            string[] sinonimos = new string[0];
-            string[] ListaFinal = new string[0];
-            for (int i = 0; i < QueryWordsQ.Length; i++)
-            {
-                for (int j = 0; j < ListSinom.Count; j++)
-                {
-                    if (ListSinom[j].Contains(QueryWordsQ[i]))
-                    {
-                        sinonimos = Moogle.RellenarListasDeSin(QueryWordsQ[i], ListSinom[j]);
-                    }
-                }
-            }
+{
+    // PROTECCIÓN: Si la lista de sinónimos es nula, devolvemos las palabras originales
+    if (ListSinom == null) return QueryWordsQ;
 
-            for (int i = 0; i < sinonimos.Length; i++)
+    // Usamos una lista temporal para ir acumulando TODO
+    List<string> ListaFinal = new List<string>();
+
+    for (int i = 0; i < QueryWordsQ.Length; i++)
+    {
+        // Añadimos siempre la palabra original primero
+        if (!ListaFinal.Contains(QueryWordsQ[i])) ListaFinal.Add(QueryWordsQ[i]);
+
+        for (int j = 0; j < ListSinom.Count; j++)
+        {
+            // Verificamos que el grupo de sinónimos no sea nulo antes de buscar
+            if (ListSinom[j] != null && ListSinom[j].Contains(QueryWordsQ[i]))
             {
-                ListaFinal = ListaFinal.Append(sinonimos[i]).ToArray();
-            }
-            for (int j = 0; j < QueryWordsQ.Length; j++)
-            {
-                if (!ListaFinal.Contains(QueryWordsQ[j]))
+                foreach (var sin in ListSinom[j])
                 {
-                    ListaFinal = ListaFinal.Append(QueryWordsQ[j]).ToArray();
+                    if (!ListaFinal.Contains(sin)) ListaFinal.Add(sin);
                 }
             }
-            return ListaFinal;
         }
+    }
+    return ListaFinal.ToArray();
+}
 
 
         // Metodo para crear el snipet de cada documento
@@ -343,31 +347,24 @@ namespace MoogleEngine
 
         public bool ComprobarOperadores(string[] CadenasConOperadores)
         {
+            // Si el arreglo es nulo, no hay operadores
+            if (CadenasConOperadores == null) return false;
+
             for (int i = 0; i < CadenasConOperadores.Length; i++)
-            {
-                //Revisa si la palabra contiene el operador de No Debe estar
-                if (CadenasConOperadores[i].Contains('!'))
+                {
+                 // PROTECCIÓN: Si la palabra es nula o vacía, saltamos a la siguiente
+                if (string.IsNullOrEmpty(CadenasConOperadores[i])) continue;
+
+                // Ahora es seguro revisar los operadores
+                if (CadenasConOperadores[i].Contains('!') || 
+                    CadenasConOperadores[i].Contains('^') || 
+                    CadenasConOperadores[i].Contains('~') || 
+                    CadenasConOperadores[i].Contains('*'))
                 {
                     return true;
-                }
-                //Revisa si la palabra contiene el operador Debe estar
-                if (CadenasConOperadores[i].Contains('^'))
-                {
-                    return true;
-                }
-                //Revisa si la palabra contiene el operador Cercania
-                if (CadenasConOperadores[i].Contains('~'))
-                {
-                    return true;
-                }
-                //Revisa si la palabra contiene el operador Importancia
-                if (CadenasConOperadores[i].Contains('*'))
-                {
-                    return true;
-                }
+             }
             }
             return false;
-
         }
 
 
@@ -702,7 +699,7 @@ namespace MoogleEngine
             } while (contador != 0);
 
             //Itero el arreglo de calculos
-            for (int j = 0; j < calculos.Length - 2; j++)
+            for (int j = 0; j < calculos.Length - 1; j++)
             {
                 //Reviso cual es mayor
                 if (calculos[j] < calculos[j + 1])
@@ -768,6 +765,7 @@ namespace MoogleEngine
         //Metodos para Comparar
         public static string Comparacion(string[] palabras)
         {
+            if (palabras.Length == 0) return "";
             //Declaro un arreglo de double 
             double[] idfs = new double[0];
             //itero las palabras de la query
@@ -810,27 +808,31 @@ namespace MoogleEngine
 
         //Metodo para Revisar la Ortografia
         public void RevisarOrtogra(string[] QueryWordsQ)
+{
+    if (QueryWordsQ.Length == 0) return;
+    
+    //Itero el arreglo de las palabras de la query
+    for (int i = 0; i < QueryWordsQ.Length; i++)
+    {
+        // EL CONTADOR VA AQUÍ: Existe para toda la iteración de la palabra actual
+        int contador = 0; 
+        
+        for (int k = 0; k < Moogle.ldoc.Count; k++)
         {
-            int contador = 0;
-            //Itero el arreglo de las palabras de la query
-            for (int i = 0; i < QueryWordsQ.Length; i++)
+            if (!Moogle.ldoc[k].tf.ContainsKey(QueryWordsQ[i]))
             {
-                for (int k = 0; k < Moogle.ldoc.Count; k++)
-                {
-
-                    if (!Moogle.ldoc[i].tf.ContainsKey(QueryWordsQ[i]))
-                    {
-                        contador++;
-                    }
-
-                }
-                if (contador == Moogle.ldoc.Count)
-                {
-                    //Llama al metodo Sugerencia a cada palabra
-                    QueryWordsQ[i] = Sugerncia(QueryWordsQ[i]);
-                }
+                contador++;
             }
         }
+        
+        // Como lo declaramos arriba, el if puede encontrarlo
+        if (contador == Moogle.ldoc.Count)
+        {
+            //Llama al metodo Sugerencia a cada palabra
+            QueryWordsQ[i] = Sugerncia(QueryWordsQ[i]);
+        }
+    }
+}
         #endregion
 
         #region  Auxilares

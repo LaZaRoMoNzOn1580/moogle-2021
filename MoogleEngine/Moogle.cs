@@ -17,8 +17,19 @@ public static class Moogle
 
     public static void ComienzoDeIndex()
     {
-        //Reviso la direccion en la cual se guardan los archivos y guardo solamente los que sean txts
-        var list = Directory.EnumerateFiles("..//Content", "*.txt");
+        // Intentamos con la ruta relativa que tienes
+    string path = Path.Combine(Directory.GetCurrentDirectory(), "..", "Content");
+    
+    if (!Directory.Exists(path))
+    {
+        System.Console.WriteLine("ADVERTENCIA: La carpeta " + path + " no existe.");
+        // Intento alternativo si la carpeta está dentro de MoogleServer
+        path = Path.Combine(Directory.GetCurrentDirectory(), "Content");
+    }
+
+    System.Console.WriteLine("Cargando documentos desde: " + Path.GetFullPath(path));
+        var list = Directory.EnumerateFiles(path, "*.txt");
+        
         //Voy iterando la variable var y guardando cada DocumentP en una lista de DocumentP 
         foreach (var i in list)
         {
@@ -31,6 +42,10 @@ public static class Moogle
         //Realizo el calculo del Tf_Idf de cada palabra en su respectivo documento
         LeerSinonimos();
         CargarRaices_Y_Voc();
+        // VERIFICACIÓN FINAL:
+        if (Raiz.Vocabulario == null) {
+            System.Console.WriteLine("ERROR: Raiz.Vocabulario sigue siendo null después de CargarRaices.");
+    }
         Tf_Idf();
         System.Console.WriteLine("Tf_Idf Listo" + "\n");
     }
@@ -348,21 +363,28 @@ public static class Moogle
 
     #region Sinonimos
     public static void LeerSinonimos()
+{
+    try 
     {
-        string jsonstring = File.ReadAllText("..//sinonimos.json");
-        Sinonimo sin = JsonSerializer.Deserialize<Sinonimo>(jsonstring);
-        Sinonimo.ListSinom = sin.sinonimos;
-    }
-
-    public static string[] RellenarListasDeSin(string query, string[] ListSinom)
-    {
-        string[] sinonimos = new string[0];
-        for (int i = 0; i < ListSinom.Length; i++)
-        {
-            sinonimos = sinonimos.Append(ListSinom[i]).ToArray();
+        string path = "..//sinonimos.json";
+        if (!File.Exists(path)) {
+            System.Console.WriteLine("ADVERTENCIA: No se encontró el archivo sinonimos.json");
+            Sinonimo.ListSinom = new List<string[]>();
+            return;
         }
-        return sinonimos;
+
+        string jsonstring = File.ReadAllText(path);
+        Sinonimo sin = JsonSerializer.Deserialize<Sinonimo>(jsonstring);
+        
+        // Si la deserialización devuelve null, inicializamos la lista vacía para evitar el crash
+        Sinonimo.ListSinom = sin?.sinonimos ?? new List<string[]>();
     }
+    catch (Exception ex)
+    {
+        System.Console.WriteLine("Error al cargar sinónimos: " + ex.Message);
+        Sinonimo.ListSinom = new List<string[]>();
+    }
+}
 
 
 
